@@ -1,0 +1,11 @@
+bash
+codex
+coreutils
+findutils
+gawk
+git
+grep
+procps
+ripgrep
+sed
+tmux
