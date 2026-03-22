@@ -381,6 +381,12 @@ project_file_status() {
   fi
 }
 
+missing_required_md_files() {
+  ensure_project_selected >/dev/null 2>&1 || return 1
+  [ -f "$PROJECT_DIR/PLAN.md" ] && [ -f "$PROJECT_DIR/CHANGELOG.md" ] && return 1
+  return 0
+}
+
 auto_sender_running() {
   [ -n "${AUTO_PID_FILE:-}" ] || return 1
   [ -f "$AUTO_PID_FILE" ] || return 1
@@ -460,8 +466,11 @@ show_main_menu() {
   menu_item "1" "Proje/Oturum"
   menu_item "2" "Prompt/Otomasyon"
   menu_item "3" "GitHub"
+  if missing_required_md_files; then
+    menu_item "K" "Gerekli MD dosyalari"
+  fi
   menu_item "S" "Durum"
-  menu_item "Q" "Scriptten cik" "aktif oturum varsa dogrudan kapatilir"
+  menu_item "Q" "Scriptten cik" "aktif oturum acik kalir"
   echo
 }
 
@@ -1274,15 +1283,53 @@ show_operations_menu() {
   done
 }
 
+show_required_md_files_help() {
+  ensure_project_selected || return 1
+  printf '%s\n' "$(separator)"
+  section_title "Gerekli MD Dosyalari"
+  printf '%s\n' "$(separator)"
+  printf '  Bu proje icinde %s ve %s dosyalarinin olmasi tavsiye edilir.\n' "$(bold 'PLAN.md')" "$(bold 'CHANGELOG.md')"
+  printf '  PLAN.md, Codex icin is sirasini ve aktif notlari tasir.\n'
+  printf '  CHANGELOG.md, yapilan degisikliklerin izini tutmayi kolaylastirir.\n'
+  printf '\n'
+  printf '  Bu dosyalari kurmak istiyor musunuz?\n'
+  printf '  1) Evet\n'
+  printf '  2) Hayir\n'
+  printf '\n'
+
+  case "$(prompt_input "Secim" "1")" in
+    1|e|E)
+      printf '%s\n' "$(separator)"
+      section_title "Onerilen Prompt"
+      printf '%s\n' "$(separator)"
+      cat <<EOF
+Projede PLAN.md ve CHANGELOG.md dosyalari eksik. Kod tabanini kisaca incele.
+
+1. Koken dizinde PLAN.md olustur.
+   Icine aktif hedefleri, siradaki teknik adimlari ve kullanici notlarini yaz.
+2. Koken dizinde CHANGELOG.md olustur.
+   Ilk giriste mevcut durumu ve bundan sonra yapilacak degisikliklerin nasil kaydedilecegini belirt.
+3. Var olan dosyalara zarar verme.
+4. Is bitince olusturdugun iki dosyanin kisa ozetini yaz.
+EOF
+      printf '%s\n' "$(separator)"
+      ;;
+    2|h|H|n|N)
+      info "MD dosyalari kurulumu atlandi"
+      ;;
+    *)
+      warn "Gecersiz secim"
+      return 1
+      ;;
+  esac
+}
+
 bootstrap_project() {
   resolve_base_dir
   load_current_project || true
 }
 
 confirm_script_exit() {
-  if [ -n "${PROJECT_NAME:-}" ] && session_exists; then
-    run_menu_action stop_session
-  fi
   info "Script kapatiliyor"
   return 1
 }
@@ -1346,6 +1393,15 @@ handle_main_menu_choice() {
     1|p|P|o|O) run_menu_action show_workspace_menu ;;
     2|r|R|i|I|a|A) run_menu_action show_operations_menu ;;
     3|g|G) run_menu_action show_github_menu ;;
+    k|K)
+      if missing_required_md_files; then
+        run_menu_action show_required_md_files_help
+        pause_screen
+      else
+        warn "Gerekli MD dosyalari zaten var"
+        pause_screen
+      fi
+      ;;
     s|S) run_menu_action show_status; pause_screen ;;
     q|Q) confirm_script_exit; return 1 ;;
     *)

@@ -292,27 +292,35 @@ assert_ok \
 printf 'ok - github menu 2 run_github_pull_only cagirdi\n'
 
 SESSION_OPEN=1
-STOP_SESSION_CALLS=0
 PROJECT_NAME='demo'
+PROJECT_DIR="$TEST_TMP_DIR/demo"
 SESSION='demo-codex'
+mkdir -p "$PROJECT_DIR"
 session_exists() {
   [ "${SESSION_OPEN:-0}" -eq 1 ]
-}
-run_menu_action() {
-  if [ "$1" = "stop_session" ]; then
-    STOP_SESSION_CALLS=$((STOP_SESSION_CALLS + 1))
-  fi
-  return 0
 }
 info() { :; }
 warn() { :; }
 assert_fail \
-  "confirm_script_exit aktif oturum varken dogrudan kapatir" \
+  "confirm_script_exit sadece scripti kapatir" \
   confirm_script_exit
-[ "$STOP_SESSION_CALLS" -eq 1 ] || {
-  printf 'not ok - confirm_script_exit aktif oturumda stop_session cagirmali\n' >&2
+[ "${SESSION_OPEN:-0}" -eq 1 ] || {
+  printf 'not ok - confirm_script_exit oturumu kapatmamalı\n' >&2
   exit 1
 }
-printf 'ok - confirm_script_exit aktif oturumda stop_session cagirdi\n'
+printf 'ok - confirm_script_exit oturumu kapatmadi\n'
+
+rm -f "$PROJECT_DIR/PLAN.md" "$PROJECT_DIR/CHANGELOG.md"
+assert_ok \
+  "missing_required_md_files dosyalar eksikken true doner" \
+  missing_required_md_files
+printf 'ok - missing_required_md_files eksik dosyalari algiladi\n'
+
+printf '%s' 'tamam' > "$PROJECT_DIR/PLAN.md"
+printf '%s' 'tamam' > "$PROJECT_DIR/CHANGELOG.md"
+assert_fail \
+  "missing_required_md_files dosyalar tamken false doner" \
+  missing_required_md_files
+printf 'ok - missing_required_md_files tam dosyalarda false dondu\n'
 
 rm -rf "$TEST_TMP_DIR"
