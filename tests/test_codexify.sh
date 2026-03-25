@@ -61,6 +61,28 @@ assert_ok \
   "prompt_paste_verified satira kirilan yeni promptu algilar" \
   prompt_paste_verified "$signature" "$SNAPSHOT_BEFORE_WRAPPED" "$SNAPSHOT_AFTER_WITH_NEW_WRAPPED_PROMPT"
 
+multiline_prompt_result="$(
+  read_multiline_prompt 2>/dev/null <<'EOF'
+ilk satir
+ikinci satir
+
+EOF
+)"
+
+[ "$multiline_prompt_result" = $'ilk satir\nikinci satir' ] || {
+  printf 'not ok - read_multiline_prompt sadece girilen metni donmeli\n' >&2
+  exit 1
+}
+printf 'ok - read_multiline_prompt sadece girilen metni doner\n'
+
+case "$multiline_prompt_result" in
+  *"Promptu yaz. Bitirmek icin bos satir birak."*|*"-----"*)
+    printf 'not ok - read_multiline_prompt aciklama veya separator eklememeli\n' >&2
+    exit 1
+    ;;
+esac
+printf 'ok - read_multiline_prompt aciklama metnini dahil etmez\n'
+
 sleep() { :; }
 ensure_session() { return 0; }
 reset_prompt_input_area() { :; }

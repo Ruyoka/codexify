@@ -62,6 +62,8 @@ paint() {
 bold() { paint '1' "$*"; }
 muted() { paint '2' "$*"; }
 accent() { paint '36' "$*"; }
+accent_soft() { paint '34' "$*"; }
+highlight() { paint '35' "$*"; }
 ok() { paint '32' "$*"; }
 warn_color() { paint '33' "$*"; }
 err_color() { paint '31' "$*"; }
@@ -407,7 +409,14 @@ status_line() {
   width="$(terminal_width)"
   value_width=$((width - 18))
   [ "$value_width" -ge 12 ] || value_width=12
-  printf '%-14s %s\n' "$label" "$(shorten "$value" "$value_width")"
+  printf '%s %s\n' "$(printf '%-14s' "$(muted "$label")")" "$(bold "$(accent "$(shorten "$value" "$value_width")")")"
+}
+
+status_meta_line() {
+  local text="$1"
+  local width
+  width="$(terminal_width)"
+  printf '  %s\n' "$(bold "$(accent "$(shorten "$text" $((width - 4)))")")"
 }
 
 render_dashboard() {
@@ -444,45 +453,65 @@ render_dashboard() {
     root_text="secilmedi"
   fi
 
-  printf '%s\n' "$(separator)"
-  printf '%s\n' "$(bold "CODEXIFY ${APP_VERSION}")"
-  printf '%s\n' "$(muted 'Tmux + Codex')"
-  printf '%s\n' "$(separator)"
+  printf '%s\n' "$(accent "$(separator)")"
+  printf '%s\n' "$(bold "$(highlight "CODEXIFY") $(muted "${APP_VERSION}")")"
+  printf '%s\n' "$(muted 'Tmux + Codex workflow panel')"
+  printf '%s\n' "$(accent "$(separator)")"
   status_line "Root" "$(strip_ansi "$root_text")"
   status_line "Proje" "$(strip_ansi "$project_text")"
   status_line "Session" "$(strip_ansi "$session_text")"
   status_line "Taslak" "$(strip_ansi "$draft_text")"
   status_line "Auto" "$(strip_ansi "$auto_text")"
   if [ -n "${PROJECT_NAME:-}" ]; then
-    status_line "plan/changelog" "plan=$(strip_ansi "$(project_file_status PLAN.md)") changelog=$(strip_ansi "$(project_file_status CHANGELOG.md)")"
+    printf '\n'
+    status_meta_line "plan=$(strip_ansi "$(project_file_status PLAN.md)")"
+    status_meta_line "changelog=$(strip_ansi "$(project_file_status CHANGELOG.md)")"
   fi
-  printf '%s\n' "$(separator)"
+  printf '%s\n' "$(accent "$(separator)")"
 }
 
 show_main_menu() {
   render_dashboard
   echo
-  section_title "Ana Menu"
-  menu_item "1" "Proje/Oturum"
-  menu_item "2" "Prompt/Otomasyon"
-  menu_item "3" "GitHub"
+section_title "Ana Menu"
+  printf '%s\n' "$(highlight '  Hizli erisim')"
+  menu_item "1" "$(bold "Proje/Oturum")" "oturum sec, ac, baglan"
+  menu_item "2" "$(bold "Prompt/Otomasyon")" "taslak prompt ve otomatik gonderim"
+  menu_item "3" "$(bold "GitHub")" "sync, pull, push"
   if missing_required_md_files; then
-    menu_item "K" "Gerekli MD dosyalari"
+    menu_item "K" "$(bold "Gerekli MD dosyalari")" "PLAN.md ve CHANGELOG.md yardimi"
   fi
-  menu_item "S" "Durum"
-  menu_item "Q" "Scriptten cik" "aktif oturum acik kalir"
+  menu_item "S" "$(bold "Durum")" "son cikti ve panel ozeti"
+  menu_item "Q" "$(bold "Scriptten cik")" "aktif oturum acik kalir"
   echo
 }
 
 read_multiline_prompt() {
-  local line prompt=""
-  echo "Promptu yaz. Bitirmek icin bos satir birak."
-  echo
-  while IFS= read -r line; do
+  local line prompt="" input_fd=0 use_readline=0
+
+  if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+    exec {input_fd}<>/dev/tty
+    use_readline=1
+    printf '%s\n\n' "$(accent "Promptu yaz. Bitirmek icin bos satir birak.")" > /dev/tty
+  else
+    printf '%s\n\n' "Promptu yaz. Bitirmek icin bos satir birak." >&2
+  fi
+
+  while true; do
+    if [ "$use_readline" -eq 1 ]; then
+      IFS= read -e -r -u "$input_fd" -p "> " line || break
+    else
+      IFS= read -r line || break
+    fi
     [ -z "$line" ] && break
     [ -z "$prompt" ] || prompt+=$'\n'
     prompt+="$line"
   done
+
+  if [ "$use_readline" -eq 1 ]; then
+    exec {input_fd}<&-
+  fi
+
   printf '%s' "$prompt"
 }
 
